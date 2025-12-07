@@ -185,6 +185,35 @@ public://一些判断函数
     
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     
+    //
+        //
+    /**
+     *把 “缓冲区对象 + 需要到 GPU 内存“ 绑定在一起，让 CPU/GPU 都能访问，从而可以用来存储顶点、索引、uniform 等数据
+     *usage —— 缓冲区用途，如 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT 顶点缓冲
+     *                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT 索引缓冲
+     *                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT uniform 缓冲
+     */
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+        
+    /**
+     * 生成各级 mipmap
+     */
+    void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+    
+    
+    
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        
+        VkBufferCopy copyRegion{};
+        copyRegion.srcOffset = 0; // Optional
+        copyRegion.dstOffset = 0; // Optional
+        copyRegion.size = size;
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+        
+        endSingleTimeCommands(commandBuffer);
+    }
+    
 private:
     void initWindow();
     
@@ -235,10 +264,14 @@ private:
     void createColorResources();         // 为 msaa 创建对应的资源，主要包括 image、imageview 还有对应的 memory
     void createDepthResources();         // 深度测试相关的内容
     void createFramebuffers();           // 创建帧缓存，定义一个帧里面有多少个 view port
-    void createTextureImage();
+    
+    /**
+     * 创建纹理
+     */
+    void createTextureImage(const char* imgPath);
     void createTextureImageView();
     void createTextureSampler();
-    void loadModel();
+    void loadModel(const char* modelPath);
     void createVertexBuffer();
     void createIndexBuffer();
     void createUniformBuffers();

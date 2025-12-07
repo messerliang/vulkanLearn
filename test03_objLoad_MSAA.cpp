@@ -1175,8 +1175,9 @@ private:
         );
         endSingleTimeCommands(commandBuffer);
     }
-    
-    void createDepthResources(){
+
+    void createDepthResources()
+    {
         VkFormat depthFormat = findDepthFormat();
         createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
         depthImageView = createImageView(depthImage, depthFormat, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -1185,7 +1186,8 @@ private:
     }
     
     // 获取每个像素点最大采样点
-    VkSampleCountFlagBits getMaxUsableSampleCount(){
+    VkSampleCountFlagBits getMaxUsableSampleCount()
+    {
         VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
         VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
