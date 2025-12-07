@@ -17,11 +17,11 @@ layout (binding = 0) uniform ParameterUBO{
     float deltaTime;
 } ubo;
 
-layout (stb140, binding = 1) readonly buffer ParticleSSBOIn{
+layout (std140, binding = 1) readonly buffer ParticleSSBOIn{
     Particle particlesIn[];
 };
 
-layout (stb140, binding = 2) buffer ParticleSSBOOut{
+layout (std140, binding = 2) buffer ParticleSSBOOut{
     Particle particlesOut[];
 };
 
@@ -33,7 +33,7 @@ void main(){
     Particle particleIn = particlesIn[index];
     
     particlesOut[index].position = particleIn.position + particleIn.velocity.xy * ubo.deltaTime;
-    particlesOut[index].velocity = partilcleIn.velocity;
+    particlesOut[index].velocity = particleIn.velocity;
     
     // 碰到屏幕，就翻转速度
     if ((particlesOut[index].position.x <= -1.0) || (particlesOut[index].position.x >= 1.0)) {
