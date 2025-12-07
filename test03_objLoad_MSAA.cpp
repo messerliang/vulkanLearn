@@ -48,6 +48,9 @@
 #include <sstream>
 #include <unordered_map>
 
+// 一些自定义的变量
+#include "defines.h"
+
 // 图片加载 stb_image
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -121,58 +124,6 @@ struct SwapChainSupportDetails{
     std::vector<VkPresentModeKHR> presentModes;     // available presentation modes
 };
 
-struct Vertex{
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-    
-    bool operator==(const Vertex& other) const{
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-    
-    static VkVertexInputBindingDescription getBindingDescription(){
-        
-        VkVertexInputBindingDescription bindingDescription{};
-        
-        bindingDescription.binding = 0;                 // 这里指定了顶点缓冲区的 id
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        
-        return bindingDescription;
-    }
-    
-    static std::array<VkVertexInputAttributeDescription,3> getAttributeDescriptions(){
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-        
-        attributeDescriptions[0].binding = 0;       // 对应哪个顶点缓冲区绑定
-        attributeDescriptions[0].location = 0;      // 对应 shader 中 layout(location = x)的x
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-        
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-        
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-        
-        return attributeDescriptions;
-    }
-};
-
-namespace std {
-    template<> struct hash<Vertex> {
-        size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^
-                   (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-                   (hash<glm::vec2>()(vertex.texCoord) << 1);
-        }
-    };
-}
-
 
 // model view projection struct
 struct UniformBufferObject{
@@ -180,31 +131,6 @@ struct UniformBufferObject{
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
-//// 顶点和颜色数据
-//const std::vector<Vertex> vertices = {
-////    {{-0.5, -0.5}, {1.0f, 0.0f, 0.0f},{0.0f, 1.0f}},
-////    {{ 0.5, -0.5}, {0.0f, 1.0f, 1.0f},{1.0f, 1.0f}},
-////    {{ 0.5,  0.5}, {0.0f, 1.0f, 0.0f},{1.0f, 0.0f}},
-////    {{-0.5,  0.5}, {0.0f, 0.0f, 1.0f},{0.0f, 0.0f}},
-//    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-//
-//    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-//};
-//
-//
-//// index buffer
-//const std::vector<uint16_t> indices = {
-//    0,1,2,
-//    0,2,3,
-//    4,5,6,
-//    6,7,4,
-//};
 
 
 class HelloTriangleApplication
@@ -681,6 +607,7 @@ private:
         
         // 确定 swap chain 里面有多少数量的 images
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+        std::cout << "image count in swap chain: " << imageCount << std::endl;
         
         // 也不要超过支持的最大值
         if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
@@ -938,8 +865,6 @@ private:
         fragShaderStageInfo.pName = "main";
         
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-        
-        
         
         // 添加顶点属性信息
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -1219,7 +1144,8 @@ private:
         endSingleTimeCommands(commandBuffer);
     }
     
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+    {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
         
         VkBufferImageCopy region{};
@@ -1249,6 +1175,7 @@ private:
         );
         endSingleTimeCommands(commandBuffer);
     }
+    
     void createDepthResources(){
         VkFormat depthFormat = findDepthFormat();
         createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
@@ -1279,7 +1206,7 @@ private:
         colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
     
-    // 从一组里面找到锁需要的 format
+    // 从一组里面找到需要的 format
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features){
         for(VkFormat format:candidates){
             VkFormatProperties props;
@@ -1700,7 +1627,8 @@ private:
         return commandBuffer;
     }
 
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer) 
+    {
         vkEndCommandBuffer(commandBuffer);
 
         VkSubmitInfo submitInfo{};
@@ -1728,7 +1656,8 @@ private:
     
     
     
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+    {
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
         
@@ -2265,20 +2194,20 @@ private:
     
 };
 
-int main()
-{
-    std::filesystem::path cwd = std::filesystem::current_path();
+// int main()
+// {
+//     std::filesystem::path cwd = std::filesystem::current_path();
     
-    std::cout << "current path: " <<cwd<< std::endl;
-    HelloTriangleApplication app;
-    try{
-        app.run();
-    }catch (const std::exception& e){
-        std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+//     std::cout << "current path: " <<cwd<< std::endl;
+//     HelloTriangleApplication app;
+//     try{
+//         app.run();
+//     }catch (const std::exception& e){
+//         std::cerr << e.what() << std::endl;
+//         return EXIT_FAILURE;
+//     }
     
-    return EXIT_SUCCESS;
-}
+//     return EXIT_SUCCESS;
+// }
 
 #endif

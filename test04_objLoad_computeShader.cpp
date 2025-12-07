@@ -5,7 +5,7 @@
 //  Created by Zhupei Li on 2025/9/27.
 //
 
-#if 1
+#if 0
 
 
 #define VK_EXT_metal_surface
@@ -47,6 +47,7 @@
 #include <filesystem>
 #include <sstream>
 #include <unordered_map>
+#include <random>
 
 // 图片加载 stb_image
 #define STB_IMAGE_IMPLEMENTATION
@@ -55,6 +56,13 @@
 // obj 模型加载
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
+
+#ifndef M_PI
+#define M_PI        3.14159265358979323846264338327950288   /* pi             */
+#endif
+
+const uint32_t PARTICLE_COUNT = 8192;
+
 
 // 窗口常量
 
@@ -180,32 +188,37 @@ struct UniformBufferObject{
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
-//// 顶点和颜色数据
-//const std::vector<Vertex> vertices = {
-////    {{-0.5, -0.5}, {1.0f, 0.0f, 0.0f},{0.0f, 1.0f}},
-////    {{ 0.5, -0.5}, {0.0f, 1.0f, 1.0f},{1.0f, 1.0f}},
-////    {{ 0.5,  0.5}, {0.0f, 1.0f, 0.0f},{1.0f, 0.0f}},
-////    {{-0.5,  0.5}, {0.0f, 0.0f, 1.0f},{0.0f, 0.0f}},
-//    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-//
-//    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-//};
-//
-//
-//// index buffer
-//const std::vector<uint16_t> indices = {
-//    0,1,2,
-//    0,2,3,
-//    4,5,6,
-//    6,7,4,
-//};
 
+struct Particle {
+    glm::vec2 position;
+    glm::vec2 velocity;
+    glm::vec4 color;
+
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Particle);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Particle, position);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Particle, color);
+
+        return attributeDescriptions;
+    }
+};
 
 class HelloTriangleApplication
 {
@@ -252,14 +265,17 @@ private:
     std::vector<VkFramebuffer> swapChainFramebuffers;
     
     VkRenderPass renderPass;
-    
-    // 用来控制 unifoem 参数的
-    VkDescriptorSetLayout descriptorSetLayout;
     //uniform values need to be specified during pipeline creation by creating a VkPipelineLayout object.
     VkPipelineLayout pipelineLayout;
-    // 最后的渲染管线
+    // 用来控制 unifoem 参数的
+    VkDescriptorSetLayout descriptorSetLayout;
+    // 图像渲染管线
     VkPipeline graphicsPipeline;
     
+    // 下面这三个是 compute shader 的
+    VkDescriptorSetLayout computeDescriptorSetLayout;
+    VkPipelineLayout computePipelineLayout;
+    VkPipeline computePipeline;
     
     // command pool
     VkCommandPool commandPool;
@@ -272,6 +288,7 @@ private:
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
     
+    
     // index buffer
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
@@ -281,20 +298,33 @@ private:
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;
     
+    // 用于 compute shader 的 VkBuffer 数组 和 VkDeviceMemory 数组
+    std::vector<VkBuffer> shaderStorageBuffers;
+    std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
+    
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkDescriptorSet> computeDescriptorSets;
+    
 
     // command buffer
     std::vector<VkCommandBuffer> commandBuffers; // 当 command pool 被释放的时候会自动释放
+    std::vector<VkCommandBuffer> computeCommandBuffers; // 用于 compute shader 的 command buffer
     
     // 添加几个用于 cpu 和 gpu 同步的变量
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkSemaphore> computeFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
+    std::vector<VkFence> computeInFlightFences;
+    
     
     uint32_t currentFrame = 0;
     
     bool framebufferResized = false;
+    
+    float lastFrameTime = 0.0f;
+    double lastTime = 0.0f;
     
     // texture image相关的成员变量
     uint32_t mipLevels;
@@ -332,6 +362,8 @@ private:
         
         // 窗口大小发生变化时候到回调函数
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        
+        lastTime = glfwGetTime();
     }
     
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height){
@@ -351,11 +383,14 @@ private:
         createImageViews();     // 为每个交换链中的数据创建一个 image views
         createRenderPass();     // 附件、subpass，render pass
         createDescriptorSetLayout();    // 创建描述符集布局，定义了着色器如何访问资源（uniform 缓冲区、纹理等）的接口“规范”
-        createGraphicPipeline();        // 创建渲染管线
+        createComputeDescriptorSetLayout();
+        createGraphicPipeline();        // 创建图片渲染管线
+        createComputePipeline();        // compute shader 渲染管线
         createCommandPool();            // 创建命令池
         createColorResources();         // 为 msaa 创建对应的资源，主要包括 image、imageview 还有对应的 memory
         createDepthResources();         // 深度测试相关的内容
         createFramebuffers();           // 创建帧缓存，定义一个帧里面有多少个 view port
+        createShaderStorageBuffers();
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
@@ -365,7 +400,9 @@ private:
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
+        createComputeDescriptorSets();
         createCommandBuffer();
+        createComputeCommandBuffers();
         createSyncObjects();
     }
     void mainLoop()
@@ -912,11 +949,41 @@ private:
         
     }
     
+    void createComputeDescriptorSetLayout(){
+        std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
+        layoutBindings[0].binding = 0;                                              // binding 0 是输入的时间，uniform 类型
+        layoutBindings[0].descriptorCount = 1;
+        layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        layoutBindings[0].pImmutableSamplers = nullptr;
+        layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        
+        layoutBindings[1].binding = 1;                                              // binding 1 是输入的 particle 类型
+        layoutBindings[1].descriptorCount = 1;
+        layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        layoutBindings[1].pImmutableSamplers = nullptr;
+        layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        
+        layoutBindings[2].binding = 2;                                              // binding 2 是输出的 particle 类型
+        layoutBindings[2].descriptorCount = 1;
+        layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        layoutBindings[2].pImmutableSamplers = nullptr;
+        layoutBindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = layoutBindings.size();
+        layoutInfo.pBindings = layoutBindings.data();
+        
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create compute descriptor set layout!");
+        }
+    }
+    
     // 创建渲染管线
     void createGraphicPipeline(){
         // 读取编译好的 shader 代码
-        auto vertShaderCode = readFile("vulkanTesting/shader/basic/vert.spv");
-        auto fragShaderCode = readFile("vulkanTesting/shader/basic/frag.spv");
+        auto vertShaderCode = readFile("vulkanTesting/shader/computeShader/shader.vert.spv");
+        auto fragShaderCode = readFile("vulkanTesting/shader/computeShader/shader.frag.spv");
         
         // 创建 shader module，这里不区分顶点着色器和片元着色器
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
@@ -1082,6 +1149,40 @@ private:
         
     }
     
+    // 创建 compute shader pipeline
+    void createComputePipeline(){
+        // 读取编译好的 shader 代码
+        auto computeShaderCode = readFile("vulkanTesting/shader/computeShader/shader.comp.spv");
+        VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
+        
+        VkPipelineShaderStageCreateInfo computeShaderStageInfo{};
+        computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        computeShaderStageInfo.module = computeShaderModule;
+        computeShaderStageInfo.pName = "main";
+        
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &computeDescriptorSetLayout;
+        
+        if(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS){
+            throw std::runtime_error("failed to create compute pipeline layout");
+        }
+        
+        VkComputePipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipelineInfo.layout = computePipelineLayout;
+        pipelineInfo.stage = computeShaderStageInfo;
+
+        if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create compute pipeline!");
+        }
+
+        vkDestroyShaderModule(device, computeShaderModule, nullptr);
+        
+    }
+    
     // VkImage是原始图像数据（原始显存） -> VkImageView 定义了怎么访问原始图像数据 -> VkFramebuffer 是渲染目标组合，包括一个或多个VkImageView
     void createFramebuffers(){
         swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -1105,6 +1206,47 @@ private:
                 throw std::runtime_error("failed to create framebuffer!");
             }
         }
+    }
+    
+    // 创建内存，并存放各个粒子的初始状态，同时把 buffer 拷贝到每一帧里面
+    void createShaderStorageBuffers(){
+        // 初始化 particles
+        std::default_random_engine rndEngine((unsigned)time(nullptr));
+        std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
+        
+        // 把粒子初始化为一个圆形
+        std::vector<Particle> particles(PARTICLE_COUNT);
+        for(auto& particle:particles){
+            float r = 0.25f * sqrt(rndDist(rndEngine));
+            float theta = rndDist(rndEngine) * 2.0f * M_PI;
+            float x = r * cos(theta) * HEIGHT / WIDTH;
+            float y = r * sin(theta);
+            particle.position = glm::vec2(x, y);
+            particle.velocity = glm::normalize(glm::vec2(x,y)) * 0.00025f;
+            particle.color = glm::vec4(rndDist(rndEngine), rndDist(rndEngine), rndDist(rndEngine), 1.0f);
+        }
+        
+        VkDeviceSize bufferSize = sizeof(Particle) * particles.size();
+        
+        // 生成 staging buffer
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+        
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, particles.data(), bufferSize);
+        vkUnmapMemory(device, stagingBufferMemory);
+        
+        shaderStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        shaderStorageBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        for(size_t i=0; i < MAX_FRAMES_IN_FLIGHT; ++i){
+            createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);
+            copyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
+        }
+        
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
     
     // 创建命令池
@@ -1643,6 +1785,63 @@ private:
             vkUpdateDescriptorSets(device, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
         }
     }
+    
+    void createComputeDescriptorSets(){
+        std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, computeDescriptorSetLayout);
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = descriptorPool;
+        allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+        
+        computeDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+        if(vkAllocateDescriptorSets(device, &allocInfo, computeDescriptorSets.data()) != VK_SUCCESS){
+            throw std::runtime_error("failed to allocate descriptor sets");
+        }
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            VkDescriptorBufferInfo uniformBufferInfo{};
+            uniformBufferInfo.buffer = uniformBuffers[i];
+            uniformBufferInfo.offset = 0;
+            uniformBufferInfo.range = sizeof(UniformBufferObject);
+
+            std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[0].dstSet = computeDescriptorSets[i];
+            descriptorWrites[0].dstBinding = 0;
+            descriptorWrites[0].dstArrayElement = 0;
+            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[0].descriptorCount = 1;
+            descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
+
+            VkDescriptorBufferInfo storageBufferInfoLastFrame{};
+            storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % MAX_FRAMES_IN_FLIGHT];
+            storageBufferInfoLastFrame.offset = 0;
+            storageBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[1].dstSet = computeDescriptorSets[i];
+            descriptorWrites[1].dstBinding = 1;
+            descriptorWrites[1].dstArrayElement = 0;
+            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            descriptorWrites[1].descriptorCount = 1;
+            descriptorWrites[1].pBufferInfo = &storageBufferInfoLastFrame;
+
+            VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
+            storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
+            storageBufferInfoCurrentFrame.offset = 0;
+            storageBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+            descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[2].dstSet = computeDescriptorSets[i];
+            descriptorWrites[2].dstBinding = 2;
+            descriptorWrites[2].dstArrayElement = 0;
+            descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            descriptorWrites[2].descriptorCount = 1;
+            descriptorWrites[2].pBufferInfo = &storageBufferInfoCurrentFrame;
+
+            vkUpdateDescriptorSets(device, 3, descriptorWrites.data(), 0, nullptr);
+        }
+        
+    }
 
     // 把 “缓冲区对象 + 需要到 GPU 内存“ 绑定在一起，让 CPU/GPU 都能访问，从而可以用来存储顶点、索引、uniform 等数据
     // usage —— 缓冲区用途，如 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT 顶点缓冲
@@ -1757,6 +1956,21 @@ private:
         }
     }
     
+    void createComputeCommandBuffers() {
+        computeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = (uint32_t)computeCommandBuffers.size();
+
+        
+        if (vkAllocateCommandBuffers(device, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate compute command buffers!");
+        }
+    }
+
     
     // 把 command 写进到 command buffer
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1780,14 +1994,15 @@ private:
         
         // 清除attachments里面的信息
         std::array<VkClearValue,2> clearValues{};
-        clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        clearValues[1].depthStencil = {1.0f, 0};
+        clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}}; // 背景颜色信息
+        clearValues[1].depthStencil = {1.0f, 0};            // 模版信息
         
         renderPassInfo.clearValueCount = clearValues.size();
         renderPassInfo.pClearValues = clearValues.data();
         
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         
+        // 绑定 graphicsPipeline
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         
         
@@ -1829,6 +2044,26 @@ private:
         {
             throw std::runtime_error("failed to end render pass");
         }
+    }
+    
+    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to begin recording compute command buffer!");
+        }
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeDescriptorSets[currentFrame], 0, nullptr);
+
+        vkCmdDispatch(commandBuffer, PARTICLE_COUNT / 256, 1, 1);
+
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to record compute command buffer!");
+        }
+
     }
     
     void createSyncObjects(){
@@ -1878,9 +2113,11 @@ private:
     // 往 command buffer 写入绘制命令
     // 显示 swap chain 的 image
     void drawFrame(){
-        // 等待 fence完成
+        // 等待 graphic fence完成
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         
+        // 等待 compute fence 完成
+        vkWaitForFences(device, 1, &computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         
         // 从 swap chain 中获取一个 image
         uint32_t imageIndex;
@@ -1896,36 +2133,44 @@ private:
         {
             throw std::runtime_error("fail to acquire swap chain image");
         }
+        
+        
+        
         // 更新 uniform 数据
         updateUniformBuffer(currentFrame);
         
         // fence触发后，记得 reset
         // 放在重建 swap chain 之后，
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
-        
-        
+        vkResetFences(device, 1, &computeInFlightFences[currentFrame]);
         
         
         // 使用 imageIndex 进行图像绘制
         vkResetCommandBuffer(commandBuffers[currentFrame],0);
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
         
+        vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
+        recordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
+        
+        std::array<VkCommandBuffer, 2> cmdBuffers = {commandBuffers[currentFrame], computeCommandBuffers[currentFrame]};
+
+        std::vector<VkSemaphore> waitSemaphores = {computeFinishedSemaphores[currentFrame],imageAvailableSemaphores[currentFrame]};
+        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
-        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
+        submitInfo.pWaitSemaphores = waitSemaphores.data();
         submitInfo.pWaitDstStageMask = waitStages;
         
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+        submitInfo.commandBufferCount = cmdBuffers.size();
+        submitInfo.pCommandBuffers = cmdBuffers.data();
         
         
-        VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
+//        VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+        std::vector<VkSemaphore> signalSemaphores = {renderFinishedSemaphores[currentFrame], computeFinishedSemaphores[currentFrame]};
+        submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
+        submitInfo.pSignalSemaphores = signalSemaphores.data();
         
         if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");

@@ -5,7 +5,7 @@
 //  Created by Zhupei Li on 2025/9/27.
 //
 
-#if 1
+#if 0
 
 
 #define VK_EXT_metal_surface
@@ -846,8 +846,8 @@ private:
     // 创建渲染管线
     void createGraphicPipeline(){
         // 读取编译好的 shader 代码
-        auto vertShaderCode = readFile("/Users/zhupeili/Desktop/my_program/vulkan/firstTest/vulkanTesting/vulkanTesting/shader/basic/vert.spv");
-        auto fragShaderCode = readFile("/Users/zhupeili/Desktop/my_program/vulkan/firstTest/vulkanTesting/vulkanTesting/shader/basic/frag.spv");
+        auto vertShaderCode = readFile("vulkanTesting/shader/basic/vert.spv");
+        auto fragShaderCode = readFile("vulkanTesting/shader/basic/frag.spv");
         
         // 创建 shader module，这里不区分顶点着色器和片元着色器
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
@@ -1212,7 +1212,7 @@ private:
     
     void createTextureImage() {
         int texWidth, texHeight, texChannels;
-        stbi_uc* pixels = stbi_load("/Users/zhupeili/Desktop/my_program/vulkan/firstTest/vulkanTesting/vulkanTesting/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        stbi_uc* pixels = stbi_load("vulkanTesting/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         VkDeviceSize imageSize = texWidth * texHeight * 4;
         
         
@@ -2035,7 +2035,7 @@ int main()
 {
     std::filesystem::path cwd = std::filesystem::current_path();
     
-    std::cout << "hello: " <<cwd<< std::endl;
+    std::cout << "current path: " <<cwd<< std::endl;
     HelloTriangleApplication app;
     try{
         app.run();

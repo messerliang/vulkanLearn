@@ -154,6 +154,36 @@ public://一些判断函数
     VkFormat findDepthFormat(){
         return findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     }
+    /**
+     * 给定一个路径，读取文件字节
+     */
+    static std::vector<char> readFile(const char* filePath);
+    
+    /**
+     * 创建 shafer module
+     */
+    VkShaderModule createShaderModule(const std::vector<char>& code);
+    
+    /**
+     * 创建 Image 句柄
+     * 查询 image 所需要的内存大小与类型
+     * 分配并绑定内存到 image
+     */
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+            
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    
+    VkCommandBuffer beginSingleTimeCommands();
+    
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+    
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
+    
+    bool hasStencilComponent(VkFormat format){
+        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    }
+    
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     
 private:
     void initWindow();
@@ -191,8 +221,16 @@ private:
     void createSwapChain();      // 创建交换链，
     void createImageViews();     // 为每个交换链中的数据创建一个 image views
     void createRenderPass();     // 附件、subpass，render pass
-    void createDescriptorSetLayout();    // 创建描述符集布局，定义了着色器如何访问资源（uniform 缓冲区、纹理等）的接口“规范”
-    void createGraphicPipeline();        // 创建渲染管线
+    /**
+     * 创建shader对外接口的规范，这里包括一个在 vertex 中的 uniform，还有一个在 fragment 中的纹理采样器
+     */
+    void createDescriptorSetLayout();
+    /**
+     * 创建渲染管线
+     * 参数0: 编译好的顶点着色器 .spv 文件的路径
+     * 参数1: 编译好的片元着色器 .spv 文件的路径
+     */
+    void createGraphicPipeline(const char* vertSpv, const char* fragSpv);        // 创建渲染管线
     void createCommandPool();            // 创建命令池
     void createColorResources();         // 为 msaa 创建对应的资源，主要包括 image、imageview 还有对应的 memory
     void createDepthResources();         // 深度测试相关的内容
