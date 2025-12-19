@@ -42,13 +42,7 @@
 // 一些自定义的变量
 #include "defines.h"
 
-// 图片加载 stb_image
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
-// obj 模型加载
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
 
 
 // 创建 VkDebugUtilsMessengerEXT，需要调用特定的函数，这个函数需要自己手动找到它
@@ -213,7 +207,11 @@ public://一些判断函数
         
         endSingleTimeCommands(commandBuffer);
     }
-    
+
+    // 把 command 写进到 command buffer
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    // 每帧都更新
+    void updateUniformBuffer(uint32_t currentImage);
 private:
     void initWindow();
     
@@ -275,6 +273,11 @@ private:
     void createVertexBuffer();
     void createIndexBuffer();
     void createUniformBuffers();
+    /*
+     * 创建描述符pool
+     * pool 最多支持 MAX_FRAMES_IN_FLIGHT 个 Descriptor Set
+     * 每个 Descriptor Set 包括 1 个 Uniform Buffer 和 1 个 Combined Image Sampler（纹理 + 采样器）
+     */
     void createDescriptorPool();
     void createDescriptorSets();
     void createCommandBuffer();
