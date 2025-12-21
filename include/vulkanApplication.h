@@ -307,9 +307,28 @@ private: // 基本配置
     #else
     const bool m_enableValidationLayers = true;
     #endif
+public:
+    void setVertexShaderPath(const std::string& path){
+        m_vertSpvPath = path;
+    }
+
+    void setFragmentShaderPath(const std::string& path){
+        m_fragSpvPath = path;
+    }
+    void setTextureImagePath(const std::string& path){
+        m_textureImagePath = path;
+    }
+    void setModelPath(const std::string& path){
+        m_modelPath = path;
+    }
     
     
 private: // 相关成员
+
+    std::string m_vertSpvPath = "";
+    std::string m_fragSpvPath = "";
+    std::string m_textureImagePath = "";
+    std::string m_modelPath = "";
 
     GLFWwindow* window;
     

@@ -33,6 +33,8 @@ VulkanApplication::VulkanApplication(const std::string& appName,int width, int h
     
 }
 
+
+
 void VulkanApplication::run()
 {
     initWindow();
@@ -676,15 +678,15 @@ void VulkanApplication::initVulkan(){
     createImageViews();     // 为每个交换链中的数据创建一个 image views
     createRenderPass();     // 附件、subpass，render pass
     createDescriptorSetLayout();    // 创建描述符集布局，定义了着色器如何访问资源（uniform 缓冲区、纹理等）的接口“规范”
-    createGraphicPipeline("vulkanTesting/shader/basic/vert.spv","vulkanTesting/shader/basic/frag.spv");        // 创建渲染管线
+    createGraphicPipeline(m_vertSpvPath.c_str(), m_fragSpvPath.c_str());        // 创建渲染管线
     createCommandPool();            // 创建命令池
     createColorResources();         // 为 msaa 创建对应的资源，主要包括 image、imageview 还有对应的 memory
     createDepthResources();         // 深度测试相关的内容
     createFramebuffers();           // 创建帧缓存，定义一个帧里面有多少个 view port
-    createTextureImage("vulkanTesting/asset/viking_room/viking_room.png");
+    createTextureImage(m_textureImagePath.c_str());
     createTextureImageView();
     createTextureSampler();
-    loadModel("vulkanTesting/asset/viking_room/viking_room.obj");
+    loadModel(m_modelPath.c_str());
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
