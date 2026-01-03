@@ -350,7 +350,7 @@ private: // 相关成员
     // 将图像显示到屏幕的命令队列 —— 展示队列
     VkQueue presentQueue;
     // 交换链
-    VkSwapchainKHR swapChain;
+    VkSwapchainKHR m_swapChain;
     
     // 需要准备一个 handles 来查看 VkImage
     std::vector<VkImage> swapChainImages;
@@ -415,16 +415,16 @@ private: // 相关成员
     VkSampler textureSampler;
 
     // depth test，深度测试相关的
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
+    VkImage m_depthImage;
+    VkDeviceMemory m_depthImageMemory;
+    VkImageView m_depthImageView;
     
     // MSAA 相关的成员变量
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;  // 默认情况下每个像素只有 1 个采样点
     // 超采样因为每个像素点都包含有多个采样值，需要的image维度和显示在屏幕上的不一样，所以需要额外的 vkimage 、view、memory等变量来保存
-    VkImage colorImage;
-    VkDeviceMemory colorImageMemory;
-    VkImageView colorImageView;
+    VkImage m_colorImage;
+    VkDeviceMemory m_colorImageMemory;
+    VkImageView m_colorImageView;
     
     
 };

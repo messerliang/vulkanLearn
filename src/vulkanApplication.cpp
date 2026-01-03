@@ -209,29 +209,29 @@ SwapChainSupportDetails VulkanApplication::querySwapChainSupport(VkPhysicalDevic
 }
 
 bool VulkanApplication::isDeviceSuitable(VkPhysicalDevice& device)
+{
+        
+    QueueFamilyIndices indices = findQueueFamilies(device);
+        
+        
+    // 是不是支持一些如 swap chain 的 extension
+    bool extensionSupport = checkDeviceExtensionSupport(device);
+        
+    // 看看 swap chain 的能力够不够
+    bool swapChainAdequate = false;
+    if(extensionSupport)
     {
-        
-        QueueFamilyIndices indices = findQueueFamilies(device);
-        
-        
-        // 是不是支持一些如 swap chain 的 extension
-        bool extensionSupport = checkDeviceExtensionSupport(device);
-        
-        // 看看 swap chain 的能力够不够
-        bool swapChainAdequate = false;
-        if(extensionSupport)
-        {
-            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
-            swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-        }
-        
-        // 查看支持的 deviceFeatures
-        VkPhysicalDeviceFeatures supportedFeatures;
-        vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-        
-        return indices.isComplete() && extensionSupport && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-        
+        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
+        
+    // 查看支持的 deviceFeatures
+    VkPhysicalDeviceFeatures supportedFeatures;
+    vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+        
+    return indices.isComplete() && extensionSupport && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+        
+}
 
 VkSampleCountFlagBits VulkanApplication::getMaxUsableSampleCount(){
     VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -303,7 +303,7 @@ void VulkanApplication::recreateSwapChain()
     
     // 等待 gpu 空闲
     vkDeviceWaitIdle(m_device);
-    
+    //窗口大小发生变化后， swap chain 需要重建
     cleanupSwapChain();
     
     createSwapChain();
@@ -705,17 +705,28 @@ void VulkanApplication::mainLoop()
     vkDeviceWaitIdle(m_device);
 }
 
+/*
+ * 释放和 swapChain 相关的资源 
+ */
 void VulkanApplication::cleanupSwapChain(){
     // 释放 framebuffer
     for(auto framebuffer:swapChainFramebuffers){
         vkDestroyFramebuffer(m_device, framebuffer, nullptr);
     }
+    // 释放深度测试相关的资源
+    vkDestroyImage(m_device, m_depthImage, nullptr);
+    vkDestroyImageView(m_device, m_depthImageView, nullptr);
+    vkFreeMemory(m_device, m_depthImageMemory, nullptr);
+    // 释放超采样相关的资源
+    vkDestroyImage(m_device, m_colorImage, nullptr);
+    vkDestroyImageView(m_device, m_colorImageView, nullptr);
+    vkFreeMemory(m_device, m_colorImageMemory, nullptr);
     // 释放 image view
     for (auto imageView : swapChainImageViews) {
        vkDestroyImageView(m_device, imageView, nullptr);
     }
     // 释放 swap chain
-    vkDestroySwapchainKHR(m_device, swapChain, nullptr);
+    vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
 }
 
 void VulkanApplication::cleanup(){
@@ -726,15 +737,7 @@ void VulkanApplication::cleanup(){
     vkDestroyImageView(m_device, textureImageView, nullptr);
     vkFreeMemory(m_device, textureImageMemory, nullptr);
     
-    // 释放深度测试相关的资源
-    vkDestroyImage(m_device, depthImage, nullptr);
-    vkDestroyImageView(m_device, depthImageView, nullptr);
-    vkFreeMemory(m_device, depthImageMemory, nullptr);
-    
-    // 释放超采样相关的资源
-    vkDestroyImage(m_device, colorImage, nullptr);
-    vkDestroyImageView(m_device, colorImageView, nullptr);
-    vkFreeMemory(m_device, colorImageMemory, nullptr);
+
     
     // 释放 VkSampler
     vkDestroySampler(m_device, textureSampler, nullptr);
@@ -1009,14 +1012,14 @@ void VulkanApplication::createSwapChain(){
     createInfo.oldSwapchain = VK_NULL_HANDLE;
     
     
-    if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
     
     // swapChain 创建完成后，可以去获取一些 image 中的内容了，同样，我们需要先获取数量
-    vkGetSwapchainImagesKHR(m_device, swapChain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, nullptr);
     swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(m_device, swapChain, &imageCount, swapChainImages.data());
+    vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, swapChainImages.data());
     
     std::cout << "num of image in swap chain : " << imageCount << std::endl;
     
@@ -1349,8 +1352,8 @@ void VulkanApplication::createFramebuffers()
     for(size_t i = 0; i < swapChainImageViews.size(); ++i)
     {
         std::array<VkImageView,3> attachments = {
-            colorImageView,
-            depthImageView,
+            m_colorImageView,
+            m_depthImageView,
             swapChainImageViews[i],
         };
         VkFramebufferCreateInfo framebufferInfo{};
@@ -1423,17 +1426,17 @@ void VulkanApplication::createImage(uint32_t width, uint32_t height, uint32_t mi
 void VulkanApplication::createDepthResources()
 {
     VkFormat depthFormat = findDepthFormat();
-    createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-    depthImageView = createImageView(depthImage, depthFormat, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
-    transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
+    createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_depthImage, m_depthImageMemory);
+    m_depthImageView = createImageView(m_depthImage, depthFormat, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
+    transitionImageLayout(m_depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
     
 }
 
 
 void VulkanApplication::createColorResources(){
     VkFormat colorFormat = swapChainImageFormat;
-    createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
-    colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_colorImage, m_colorImageMemory);
+    m_colorImageView = createImageView(m_colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 
@@ -1832,10 +1835,9 @@ void VulkanApplication::drawFrame() {
     uint32_t imageIndex;
 
     // 从交换链中取出一张图片来进行渲染，如果返回的结果表示 swapchain 不适合，就重新建立 swap chain
-    VkResult result = vkAcquireNextImageKHR(m_device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
     if (VK_ERROR_OUT_OF_DATE_KHR == result)
     {
-
         recreateSwapChain();
         return;
     }
@@ -1883,7 +1885,7 @@ void VulkanApplication::drawFrame() {
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
-    VkSwapchainKHR swapChains[] = { swapChain };
+    VkSwapchainKHR swapChains[] = { m_swapChain };
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
