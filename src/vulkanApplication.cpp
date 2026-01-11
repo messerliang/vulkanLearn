@@ -346,12 +346,12 @@ std::vector<char> VulkanApplication::readFile(const char *filePath)
     return buffer;
 }
 
-VkShaderModule VulkanApplication::createShaderModule(const std::vector<char> &code)
+VkShaderModule VulkanApplication::createShaderModule(const std::vector<uint32_t> &code)
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    createInfo.pCode = code.data();
     VkShaderModule shaderModule;
     if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         throw std::runtime_error("failed to create shader module!");
@@ -1180,9 +1180,11 @@ void VulkanApplication::createDescriptorSetLayout()
 void VulkanApplication::createGraphicPipeline(const char *vertSpv, const char *fragSpv)
 {
     // 读取编译好的 shaer 代码
-    auto vertShaderCode = readFile(vertSpv);
-    auto fragShaderCode = readFile(fragSpv);
-    
+    //auto vertShaderCode = readFile(vertSpv);
+    //auto fragShaderCode = readFile(fragSpv);
+
+    auto vertShaderCode = m_glslCompiler.compileGLSLToSpirV(vertSpv, shaderc_vertex_shader);
+    auto fragShaderCode = m_glslCompiler.compileGLSLToSpirV(fragSpv, shaderc_fragment_shader);
     
     // 创建 shader module，这里不区分顶点着色器和片元着色器
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);

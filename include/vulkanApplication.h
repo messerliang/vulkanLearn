@@ -39,10 +39,12 @@
 #include <sstream>
 #include <unordered_map>
 
+
 // 一些自定义的变量
 #include "defines.h"
 
-
+// 自定义的类
+#include "GlslCompiler.h"
 
 
 // 创建 VkDebugUtilsMessengerEXT，需要调用特定的函数，这个函数需要自己手动找到它
@@ -156,7 +158,7 @@ public://一些判断函数
     /**
      * 创建 shafer module
      */
-    VkShaderModule createShaderModule(const std::vector<char>& code);
+    VkShaderModule createShaderModule(const std::vector<uint32_t>& code);
     
     /**
      * 创建 Image 句柄
@@ -224,6 +226,8 @@ public://一些判断函数
     {
         m_indices = indices;
     }
+
+
 private:
     void initWindow();
     
@@ -438,5 +442,6 @@ private: // 相关成员
     VkDeviceMemory m_colorImageMemory;
     VkImageView m_colorImageView;
     
-    
+    // 用于将 glsl 编译为 spir-v 对象
+    GlslCompiler m_glslCompiler;
 };
