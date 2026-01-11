@@ -212,6 +212,18 @@ public://一些判断函数
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     // 每帧都更新
     void updateUniformBuffer(uint32_t currentImage);
+
+    // 设置顶点数据
+    void setVertices(const std::vector<Vertex>& vertices)
+    {
+        m_vertices = vertices;
+    }
+
+    // 设置 index 
+    void setIndices(const std::vector<int>& indices)
+    {
+        m_indices = indices;
+    }
 private:
     void initWindow();
     
@@ -376,8 +388,8 @@ private: // 相关成员
     VkCommandPool commandPool;
     
     
-    std::vector<Vertex> vertices ;
-    std::vector<uint32_t> indices;
+    std::vector<Vertex> m_vertices ;
+    std::vector<int> m_indices;
     
     // 顶点数据 buffer
     VkBuffer vertexBuffer;

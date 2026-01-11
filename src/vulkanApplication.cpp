@@ -1524,6 +1524,10 @@ void VulkanApplication::createTextureSampler()
 
 void VulkanApplication::loadModel(const char* modelPath)
 {
+    if (m_vertices.size())
+    {
+        return;
+    }
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -1553,20 +1557,20 @@ void VulkanApplication::loadModel(const char* modelPath)
             vertex.color = {1.0f, 1.0f, 1.0f};
             
             if(0 == uniqueVertices.count(vertex)){
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.emplace_back(vertex);
+                uniqueVertices[vertex] = static_cast<uint32_t>(m_vertices.size());
+                m_vertices.emplace_back(vertex);
             }
             
-            indices.emplace_back(uniqueVertices[vertex]);
+            m_indices.emplace_back(uniqueVertices[vertex]);
         }
     }
     
-    std::cout << "unique vertices number: " << vertices.size() << std::endl;
+    std::cout << "unique vertices number: " << m_vertices.size() << std::endl;
 }
 
 void VulkanApplication::createVertexBuffer()
 {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    VkDeviceSize bufferSize = sizeof(m_vertices[0]) * m_vertices.size();
     
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -1577,7 +1581,7 @@ void VulkanApplication::createVertexBuffer()
     // 把数据从 cpu 拷贝到 GPU
     void* data;
     vkMapMemory(m_device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t) bufferSize);
+    memcpy(data, m_vertices.data(), (size_t) bufferSize);
     vkUnmapMemory(m_device, stagingBufferMemory);
     
     
@@ -1591,7 +1595,7 @@ void VulkanApplication::createVertexBuffer()
 
 void VulkanApplication::createIndexBuffer()
 {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    VkDeviceSize bufferSize = sizeof(m_indices[0]) * m_indices.size();
     
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -1600,7 +1604,7 @@ void VulkanApplication::createIndexBuffer()
     
     void* data;
     vkMapMemory(m_device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), bufferSize);
+    memcpy(data, m_indices.data(), bufferSize);
     vkUnmapMemory(m_device, stagingBufferMemory);
     
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
@@ -1770,7 +1774,7 @@ void VulkanApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint3
     // 直接绘制顶点
 //        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);// vertex count; instance count; first vertex; first instance
         // 使用 index buffer 来绘制
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_indices.size()), 1, 0, 0, 0);
 
     // 结束 render pass
     vkCmdEndRenderPass(commandBuffer);

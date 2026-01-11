@@ -1,3 +1,6 @@
+#ifndef _DEFINES_H_
+#define _DEFINES_H_
+
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -17,6 +20,12 @@ struct Vertex{
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
+
+    Vertex(
+        const glm::vec3& p=glm::vec3(0.0f), 
+        const glm::vec3& c=glm::vec3(0.0f), 
+        const glm::vec2& uv=glm::vec2(0.0f)
+    ):pos(p), color(c), texCoord(uv){}
     
     bool operator==(const Vertex& other) const{
         return pos == other.pos && color == other.color && texCoord == other.texCoord;
@@ -64,3 +73,5 @@ namespace std {
         }
     };
 }
+
+#endif // !_DEFINES_H_
