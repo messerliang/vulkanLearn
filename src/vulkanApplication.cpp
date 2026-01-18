@@ -350,7 +350,7 @@ VkShaderModule VulkanApplication::createShaderModule(const std::vector<uint32_t>
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
+    createInfo.codeSize = code.size() * sizeof(code[0]);
     createInfo.pCode = code.data();
     VkShaderModule shaderModule;
     if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
