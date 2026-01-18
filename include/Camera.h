@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #pragma once
+=======
+ï»¿#pragma once
+>>>>>>> compileShader
 
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
@@ -8,9 +12,9 @@ class Camera
 public:
 
 private:
-	// ´°¿Ú¶ÔÏó
+	// çª—å£å¯¹è±¡
 	GLFWwindow* m_window = nullptr;
-	// ÉãÏñ»úÒÆ¶¯ËÙ¶È
+	// æ‘„åƒæœºç§»åŠ¨é€Ÿåº¦
 	float m_speed = 3.0f;
 
 };
