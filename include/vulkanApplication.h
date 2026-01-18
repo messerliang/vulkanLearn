@@ -404,7 +404,7 @@ private: // 相关成员
     VkDeviceMemory indexBufferMemory;
     
     // 用于 uniform 数据传输的数组
-    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkBuffer> m_uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;
     
@@ -419,7 +419,7 @@ private: // 相关成员
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     
-    uint32_t currentFrame = 0;
+    uint32_t m_currentFrame = 0;
     
     bool framebufferResized = false;
     

@@ -744,7 +744,7 @@ void VulkanApplication::cleanup(){
     
     // 释放 uniform map
     for(size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i){
-        vkDestroyBuffer(m_device, uniformBuffers[i], nullptr);
+        vkDestroyBuffer(m_device, m_uniformBuffers[i], nullptr);
         vkFreeMemory(m_device, uniformBuffersMemory[i], nullptr);
     }
     
@@ -1620,12 +1620,12 @@ void VulkanApplication::createIndexBuffer()
 void VulkanApplication::createUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    m_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_uniformBuffers[i], uniformBuffersMemory[i]);
         vkMapMemory(m_device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
     }
 }
@@ -1666,7 +1666,7 @@ void VulkanApplication::createDescriptorSets()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.buffer = m_uniformBuffers[i];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -1771,7 +1771,7 @@ void VulkanApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint3
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     // 绑定 uniform 数据
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[m_currentFrame], 0, nullptr);
 
     // 直接绘制顶点
 //        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);// vertex count; instance count; first vertex; first instance
@@ -1816,7 +1816,9 @@ void VulkanApplication::updateUniformBuffer(uint32_t currentImage) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), 0.5f * time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    //ubo.model = glm::rotate(glm::mat4(1.0f), 0.5f * time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 rotate = glm::rotate(glm::mat4(1.0f), 0.5f * time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 6.0f, -6.0f));
 
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
@@ -1834,14 +1836,14 @@ void VulkanApplication::updateUniformBuffer(uint32_t currentImage) {
     // 显示 swap chain 的 image
 void VulkanApplication::drawFrame() {
     // 等待 fence完成
-    vkWaitForFences(m_device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(m_device, 1, &inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
 
     // 从 swap chain 中获取一个 image
     uint32_t imageIndex;
 
     // 从交换链中取出一张图片来进行渲染，如果返回的结果表示 swapchain 不适合，就重新建立 swap chain
-    VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
     if (VK_ERROR_OUT_OF_DATE_KHR == result)
     {
         recreateSwapChain();
@@ -1852,37 +1854,37 @@ void VulkanApplication::drawFrame() {
         throw std::runtime_error("fail to acquire swap chain image");
     }
     // 更新 uniform 数据
-    updateUniformBuffer(currentFrame);
+    updateUniformBuffer(m_currentFrame);
 
     // fence触发后，记得 reset
     // 放在重建 swap chain 之后，
-    vkResetFences(m_device, 1, &inFlightFences[currentFrame]);
+    vkResetFences(m_device, 1, &inFlightFences[m_currentFrame]);
 
 
 
 
     // 使用 imageIndex 进行图像绘制
-    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+    vkResetCommandBuffer(commandBuffers[m_currentFrame], 0);
+    recordCommandBuffer(commandBuffers[m_currentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[m_currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &commandBuffers[m_currentFrame];
 
 
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[m_currentFrame] };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[m_currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
 
@@ -1908,6 +1910,6 @@ void VulkanApplication::drawFrame() {
         throw std::runtime_error("fail to present image");
     }
 
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 }
