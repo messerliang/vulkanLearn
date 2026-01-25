@@ -1,3 +1,6 @@
+﻿
+#ifndef _VULKANAPPLICATION_
+#define _VULKANAPPLICATION_
 
 #define VK_EXT_metal_surface
 #define GLFW_INCLUDE_VULKAN
@@ -45,7 +48,7 @@
 
 // 自定义的类
 #include "GlslCompiler.h"
-
+#include "Camera.h"
 
 // 创建 VkDebugUtilsMessengerEXT，需要调用特定的函数，这个函数需要自己手动找到它
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
@@ -227,10 +230,20 @@ public://一些判断函数
         m_indices = indices;
     }
 
+private:
+    // 绑定窗口相关的回调函数
+    void bindCallback();
+    // 鼠标滚轮滚动的回调事件
+    static void scrollCallback(GLFWwindow* window, double, double yOffset);
+
+    void onScroll(double yOffset) {
+        m_camera.updateFov(yOffset);
+    }
 
 private:
     void initWindow();
     
+
     
     void initVulkan();
     
@@ -346,8 +359,13 @@ private: // 相关成员
     std::string m_textureImagePath = "";
     std::string m_modelPath = "";
 
-    GLFWwindow* window;
-    
+    GLFWwindow* m_window;
+    std::chrono::steady_clock::time_point m_lastFrameTime;
+
+    // 视角相关的变量
+    Camera m_camera;
+
+
     VkInstance instance;
     
     VkDebugUtilsMessengerEXT debugMessenger;
@@ -445,3 +463,5 @@ private: // 相关成员
     // 用于将 glsl 编译为 spir-v 对象
     GlslCompiler m_glslCompiler;
 };
+
+#endif

@@ -1,4 +1,4 @@
-#include "vulkanApplication.h"
+﻿#include "vulkanApplication.h"
 
 // 图片加载 stb_image
 #define STB_IMAGE_IMPLEMENTATION
@@ -275,7 +275,7 @@ VkExtent2D VulkanApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& c
     }
     else{
         int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
+        glfwGetFramebufferSize(m_window, &width, &height);
         
         VkExtent2D actualExtent={
             static_cast<uint32_t>(width),
@@ -297,7 +297,7 @@ void VulkanApplication::recreateSwapChain()
 //        glfwGetWindowSize(window, &width, &height);
     while(width == 0 || height == 0)
     {
-        glfwGetWindowSize(window, &width, &height);
+        glfwGetWindowSize(m_window, &width, &height);
         glfwWaitEvents();
     }
     
@@ -654,13 +654,27 @@ void VulkanApplication::initWindow(){
     
     
     // 创建窗口
-    window = glfwCreateWindow(m_windowWidth, m_windowHeight, m_applicationName.c_str(), nullptr, nullptr);
+    m_window = glfwCreateWindow(m_windowWidth, m_windowHeight, m_applicationName.c_str(), nullptr, nullptr);
     
     // glfw 可以设置一个用户自定义的指针，所以，我们可以把对象的this指针保存下来
-    glfwSetWindowUserPointer(window, this);
+    glfwSetWindowUserPointer(m_window, this);
     
     // 窗口大小发生变化时候到回调函数
-    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+
+    // camera 相关
+    m_camera.setWindow(m_window);
+    bindCallback();
+}
+
+void VulkanApplication::bindCallback() {
+    glfwSetScrollCallback(m_window, VulkanApplication::scrollCallback);
+}
+void VulkanApplication::scrollCallback(GLFWwindow* window, double, double yOffset) {
+    auto *vulApp = static_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
+    if (vulApp) {
+        vulApp->onScroll(yOffset);
+    }
 }
 
 void VulkanApplication::framebufferResizeCallback(GLFWwindow *window, int width, int height){
@@ -698,7 +712,7 @@ void VulkanApplication::initVulkan(){
 
 void VulkanApplication::mainLoop()
 {
-    while (!glfwWindowShouldClose(window)) {
+    while (!glfwWindowShouldClose(m_window)) {
         glfwPollEvents();
         drawFrame();
     }
@@ -793,7 +807,7 @@ void VulkanApplication::cleanup(){
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
     
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(m_window);
     glfwTerminate();
     
 }
@@ -852,7 +866,7 @@ void VulkanApplication::createInstance(bool show){
 
 void VulkanApplication::createSurface(){
 
-    if( glfwCreateWindowSurface(instance, window, nullptr, &surface)!= VK_SUCCESS)
+    if( glfwCreateWindowSurface(instance, m_window, nullptr, &surface)!= VK_SUCCESS)
     {
         throw std::runtime_error("failed to create window surface with the error");
     }
@@ -1811,22 +1825,29 @@ void VulkanApplication::createSyncObjects() {
 
 void VulkanApplication::updateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
+    static float m_fov = 45.0f;
+    float max_fov = 160.0f, min_fov = 1.0f;
+
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - m_lastFrameTime).count();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    
+    m_camera.updateKeyEvent(deltaTime);
 
     UniformBufferObject ubo{};
     //ubo.model = glm::rotate(glm::mat4(1.0f), 0.5f * time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     glm::mat4 rotate = glm::rotate(glm::mat4(1.0f), 0.5f * time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.model = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 6.0f, -6.0f));
+    ubo.model = glm::mat4(1.0f);
 
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(m_camera.getPosition(), m_camera.getTargetPoint(), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(m_camera.getFov()), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 1000.0f);
 
     ubo.proj[1][1] *= -1;
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    
 }
 
 // 渲染一帧的流程如下：
@@ -1835,6 +1856,8 @@ void VulkanApplication::updateUniformBuffer(uint32_t currentImage) {
     // 往 command buffer 写入绘制命令
     // 显示 swap chain 的 image
 void VulkanApplication::drawFrame() {
+    m_lastFrameTime = std::chrono::high_resolution_clock::now();
+
     // 等待 fence完成
     vkWaitForFences(m_device, 1, &inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
